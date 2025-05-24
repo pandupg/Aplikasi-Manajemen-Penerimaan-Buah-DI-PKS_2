@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "848301905535",
+    "project_id": "databuahpks",
+    "storage_bucket": "databuahpks.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:848301905535:android:033a10449c64729583d14a",
+        "android_client_info": {
+          "package_name": "com.example.databuahpks"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfitRbMA-9TxgdbG9p-WZIG2KWSF6FiEI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

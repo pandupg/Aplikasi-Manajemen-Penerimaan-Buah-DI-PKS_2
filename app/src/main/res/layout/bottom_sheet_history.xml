@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_bottom_sheet"
+    android:gravity="center_horizontal">
+
+    <Button
+        android:id="@+id/btnRiwayatTruck"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Riwayat Truck"
+        android:backgroundTint="@color/primary"
+        android:textColor="@android:color/white"
+        android:layout_marginBottom="12dp"
+        android:drawableLeft="@drawable/baseline_local_shipping_24"
+        android:drawablePadding="8dp" />
+
+    <Button
+        android:id="@+id/btnRiwayatBuah"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Riwayat Buah"
+        android:backgroundTint="@color/primary"
+        android:textColor="@android:color/white"
+        android:drawableLeft="@drawable/baseline_spa_24"
+        android:drawablePadding="8dp" />
+</LinearLayout>
