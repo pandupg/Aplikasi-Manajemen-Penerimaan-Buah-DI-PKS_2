@@ -8,6 +8,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -18,6 +19,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 
@@ -28,6 +31,7 @@ import com.example.databuahpks.BuahAdapter;
 
 public class RiwayatBuahActivity extends AppCompatActivity {
     private RecyclerView recyclerViewBuah;
+    private TextView txtEmptyState;
     private BuahAdapter adapter;
     private ArrayList<HashMap<String, Object>> buahList;
     private FirebaseFirestore firestore;
@@ -38,16 +42,52 @@ public class RiwayatBuahActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_riwayat_buah);
-        setupBottomNav();
+
+        firestore = FirebaseFirestore.getInstance();
+
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            startActivity(new Intent(this, SignInActivity.class));
+            finish();
+            return;
+        }
+
+        firestore.collection("Users").document(currentUser.getUid())
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String role = documentSnapshot.getString("role");
+                        if (role == null) {
+                            Toast.makeText(this, "Role tidak ditemukan", Toast.LENGTH_SHORT).show();
+                            FirebaseAuth.getInstance().signOut();
+                            startActivity(new Intent(this, SignInActivity.class));
+                            finish();
+                        } else if ("pekerja".equals(role)) {
+                            Toast.makeText(this, "Hanya Mandor yang dapat mengakses riwayat", Toast.LENGTH_SHORT).show();
+                            startActivity(new Intent(this, MainActivity.class));
+                            finish();
+                        }
+                    } else {
+                        Toast.makeText(this, "Data pengguna tidak ditemukan", Toast.LENGTH_SHORT).show();
+                        FirebaseAuth.getInstance().signOut();
+                        startActivity(new Intent(this, SignInActivity.class));
+                        finish();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(this.getClass().getSimpleName(), "Failed to load role: " + e.getMessage());
+                    Toast.makeText(this, "Gagal memuat role: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
 
         recyclerViewBuah = findViewById(R.id.recyclerViewBuah);
-        firestore = FirebaseFirestore.getInstance();
+        txtEmptyState = findViewById(R.id.txtEmptyState);
         buahList = new ArrayList<>();
 
         itemClickListener = new BuahAdapter.OnItemClickListener() {
             @Override
             public void onItemClick(HashMap<String, Object> buah) {
-                Toast.makeText(RiwayatBuahActivity.this, "Clicked: " + buah.get("kodeTruck"), Toast.LENGTH_SHORT).show();
+                String kodeTruck = (String) buah.get("kodeTruck");
+                Toast.makeText(RiwayatBuahActivity.this, "Clicked: " + (kodeTruck != null ? kodeTruck : "Unknown"), Toast.LENGTH_SHORT).show();
             }
 
             @Override
@@ -57,7 +97,6 @@ public class RiwayatBuahActivity extends AppCompatActivity {
         };
 
         adapter = new BuahAdapter(buahList, itemClickListener);
-
         recyclerViewBuah.setLayoutManager(new LinearLayoutManager(this));
         recyclerViewBuah.setAdapter(adapter);
 
@@ -65,56 +104,53 @@ public class RiwayatBuahActivity extends AppCompatActivity {
         ItemTouchHelper.SimpleCallback simpleCallback = new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
             @Override
             public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder target) {
-                return false; // No drag-and-drop
+                return false;
             }
 
             @Override
             public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
                 int position = viewHolder.getAdapterPosition();
-                if (position != RecyclerView.NO_POSITION) {
+                if (position != RecyclerView.NO_POSITION && position < buahList.size()) {
                     HashMap<String, Object> buah = buahList.get(position);
                     if (direction == ItemTouchHelper.LEFT) {
-                        // Swipe left to delete
                         itemClickListener.onDeleteClick(buah);
                     } else if (direction == ItemTouchHelper.RIGHT) {
-                        // Swipe right to edit
                         Intent intent = new Intent(RiwayatBuahActivity.this, InputBuahActivity.class);
-                        intent.putExtra("editMode", true);
+                        intent.putExtra("isEditMode", true);
                         intent.putExtra("buahId", (String) buah.get("id"));
                         intent.putExtra("kodeTruck", (String) buah.get("kodeTruck"));
                         intent.putExtra("namaPengemudi", (String) buah.get("namaPengemudi"));
-                        intent.putExtra("tanggalInput", (String) buah.get("tanggalInput")); // Map tanggal to tanggalInput
-                        intent.putExtra("beratDatang", String.valueOf(buah.get("beratDatang")));
-                        intent.putExtra("beratPulang", String.valueOf(buah.get("beratPulang")));
-                        intent.putExtra("jumlahBusuk", String.valueOf(buah.get("jumlahBusuk")));
-                        intent.putExtra("jumlahLewatMatang", String.valueOf(buah.get("jumlahLewatMatang")));
-                        intent.putExtra("jumlahMatang", String.valueOf(buah.get("jumlahMatang")));
-                        intent.putExtra("jumlahMentah", String.valueOf(buah.get("jumlahMentah")));
+                        intent.putExtra("tanggalInput", (String) buah.get("tanggalInput"));
+                        intent.putExtra("beratDatang", buah.get("beratDatang") != null ? String.valueOf(buah.get("beratDatang")) : "");
+                        intent.putExtra("beratPulang", buah.get("beratPulang") != null ? String.valueOf(buah.get("beratPulang")) : "");
+                        intent.putExtra("jumlahBusuk", buah.get("jumlahBusuk") != null ? String.valueOf(buah.get("jumlahBusuk")) : "");
+                        intent.putExtra("jumlahLewatMatang", buah.get("jumlahLewatMatang") != null ? String.valueOf(buah.get("jumlahLewatMatang")) : "");
+                        intent.putExtra("jumlahMatang", buah.get("jumlahMatang") != null ? String.valueOf(buah.get("jumlahMatang")) : "");
+                        intent.putExtra("jumlahMentah", buah.get("jumlahMentah") != null ? String.valueOf(buah.get("jumlahMentah")) : "");
                         intent.putExtra("waktuInput", (String) buah.get("waktuInput"));
                         startActivity(intent);
                     }
                 }
+                adapter.notifyItemChanged(position);
             }
 
             @Override
             public void onChildDraw(Canvas c, RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, float dX, float dY, int actionState, boolean isCurrentlyActive) {
                 super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
-
                 if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE) {
                     View itemView = viewHolder.itemView;
                     ColorDrawable background;
                     int icon;
-                    int iconMargin = (itemView.getHeight() - 48) / 2; // 48dp icon size
+                    int iconMargin = (itemView.getHeight() - (int) (48 * getResources().getDisplayMetrics().density)) / 2;
 
-                    if (dX < 0) { // Swipe left (delete)
+                    if (dX < 0) {
                         background = new ColorDrawable(ContextCompat.getColor(RiwayatBuahActivity.this, android.R.color.holo_red_light));
                         icon = android.R.drawable.ic_menu_delete;
-                    } else { // Swipe right (edit)
+                    } else {
                         background = new ColorDrawable(ContextCompat.getColor(RiwayatBuahActivity.this, android.R.color.holo_green_light));
                         icon = android.R.drawable.ic_menu_edit;
                     }
 
-                    // Draw background
                     if (dX < 0) {
                         background.setBounds(itemView.getRight() + (int) dX, itemView.getTop(), itemView.getRight(), itemView.getBottom());
                     } else {
@@ -122,18 +158,17 @@ public class RiwayatBuahActivity extends AppCompatActivity {
                     }
                     background.draw(c);
 
-                    // Draw icon
                     android.graphics.drawable.Drawable drawable = ContextCompat.getDrawable(RiwayatBuahActivity.this, icon);
                     if (drawable != null) {
                         int iconTop = itemView.getTop() + iconMargin;
-                        int iconBottom = iconTop + 48;
+                        int iconBottom = iconTop + (int) (48 * getResources().getDisplayMetrics().density);
                         int iconLeft, iconRight;
-                        if (dX < 0) { // Delete icon on right
+                        if (dX < 0) {
                             iconRight = itemView.getRight() - iconMargin;
-                            iconLeft = iconRight - 48;
-                        } else { // Edit icon on left
+                            iconLeft = iconRight - (int) (48 * getResources().getDisplayMetrics().density);
+                        } else {
                             iconLeft = itemView.getLeft() + iconMargin;
-                            iconRight = iconLeft + 48;
+                            iconRight = iconLeft + (int) (48 * getResources().getDisplayMetrics().density);
                         }
                         drawable.setBounds(iconLeft, iconTop, iconRight, iconBottom);
                         drawable.draw(c);
@@ -145,6 +180,7 @@ public class RiwayatBuahActivity extends AppCompatActivity {
         ItemTouchHelper itemTouchHelper = new ItemTouchHelper(simpleCallback);
         itemTouchHelper.attachToRecyclerView(recyclerViewBuah);
 
+        setupBottomNav();
         loadBuahData();
     }
 
@@ -163,7 +199,7 @@ public class RiwayatBuahActivity extends AppCompatActivity {
                             buah.put("id", doc.getId());
                             buah.put("kodeTruck", doc.getString("kodeTruck"));
                             buah.put("namaPengemudi", doc.getString("namaPengemudi"));
-                            buah.put("tanggalInput", doc.getString("tanggalInput")); // Map tanggalInput to tanggal
+                            buah.put("tanggalInput", doc.getString("tanggalInput"));
                             buah.put("beratDatang", doc.get("beratDatang"));
                             buah.put("beratPulang", doc.get("beratPulang"));
                             buah.put("jumlahBusuk", doc.get("jumlahBusuk"));
@@ -174,6 +210,7 @@ public class RiwayatBuahActivity extends AppCompatActivity {
                             buahList.add(buah);
                         }
                         adapter.notifyDataSetChanged();
+                        txtEmptyState.setVisibility(buahList.isEmpty() ? View.VISIBLE : View.GONE);
                         Log.d("RiwayatBuahActivity", "Loaded " + buahList.size() + " buah items");
                     }
                 });
@@ -192,6 +229,8 @@ public class RiwayatBuahActivity extends AppCompatActivity {
                         Log.e("RiwayatBuahActivity", "Delete error: " + e.getMessage());
                         Toast.makeText(this, "Gagal menghapus: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     });
+        } else {
+            Toast.makeText(this, "Gagal menghapus: ID tidak valid", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -212,19 +251,31 @@ public class RiwayatBuahActivity extends AppCompatActivity {
             if (id == R.id.nav_home) {
                 startActivity(new Intent(this, MainActivity.class));
                 finish();
-                return true;
             } else if (id == R.id.nav_add) {
                 tampilkanBottomSheetAdd("RiwayatBuah");
-                return true;
             } else if (id == R.id.nav_history) {
-                tampilkanBottomSheetHistory("RiwayatBuah");
-                return true;
+                FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+                if (currentUser != null) {
+                    firestore.collection("Users").document(currentUser.getUid())
+                            .get()
+                            .addOnSuccessListener(documentSnapshot -> {
+                                String role = documentSnapshot.getString("role");
+                                if ("mandor".equals(role)) {
+                                    tampilkanBottomSheetHistory("RiwayatBuah");
+                                } else {
+                                    Toast.makeText(this, "Hanya Mandor yang dapat mengakses riwayat", Toast.LENGTH_SHORT).show();
+                                }
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e("RiwayatBuahActivity", "Failed to load role: " + e.getMessage());
+                                Toast.makeText(this, "Gagal memuat role", Toast.LENGTH_SHORT).show();
+                            });
+                }
             } else if (id == R.id.nav_profile) {
                 startActivity(new Intent(this, AccountActivity.class));
                 finish();
-                return true;
             }
-            return false;
+            return true;
         });
     }
 

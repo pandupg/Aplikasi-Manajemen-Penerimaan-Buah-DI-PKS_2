@@ -11,16 +11,21 @@ import android.content.Intent;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.databuahpks.adapter.TruckAdapter;
 import com.example.databuahpks.model.Truck;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
@@ -29,11 +34,12 @@ import java.util.List;
 import it.xabaras.android.recyclerview.swipedecorator.RecyclerViewSwipeDecorator;
 
 public class RiwayatTruckActivity extends AppCompatActivity {
-
     private RecyclerView recyclerView;
+    private TextView txtEmptyState;
     private TruckAdapter adapter;
-    public List<Truck> truckList = new ArrayList<>();
+    private List<Truck> truckList = new ArrayList<>();
     private FirebaseFirestore firestore;
+    private ListenerRegistration truckListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,16 +47,46 @@ public class RiwayatTruckActivity extends AppCompatActivity {
         setContentView(R.layout.activity_riwayat_truck);
 
         firestore = FirebaseFirestore.getInstance();
+
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            startActivity(new Intent(this, SignInActivity.class));
+            finish();
+            return;
+        }
+
+        firestore.collection("Users").document(currentUser.getUid())
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String role = documentSnapshot.getString("role");
+                        if (role == null) {
+                            Toast.makeText(this, "Role tidak ditemukan", Toast.LENGTH_SHORT).show();
+                            FirebaseAuth.getInstance().signOut();
+                            startActivity(new Intent(this, SignInActivity.class));
+                            finish();
+                        } else if ("pekerja".equals(role)) {
+                            Toast.makeText(this, "Hanya Mandor yang dapat mengakses riwayat", Toast.LENGTH_SHORT).show();
+                            startActivity(new Intent(this, MainActivity.class));
+                            finish();
+                        }
+                    } else {
+                        Toast.makeText(this, "Data pengguna tidak ditemukan", Toast.LENGTH_SHORT).show();
+                        FirebaseAuth.getInstance().signOut();
+                        startActivity(new Intent(this, SignInActivity.class));
+                        finish();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(this.getClass().getSimpleName(), "Failed to load role: " + e.getMessage());
+                    Toast.makeText(this, "Gagal memuat role: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+
         recyclerView = findViewById(R.id.recyclerViewTruck);
+        txtEmptyState = findViewById(R.id.txtEmptyState);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        adapter = new TruckAdapter(truckList, kode -> {
-            firestore.collection("Truck").document(kode).delete()
-                    .addOnSuccessListener(unused -> {
-                        Toast.makeText(this, "Truck dihapus", Toast.LENGTH_SHORT).show();
-                        muatData();
-                    });
-        });
+        adapter = new TruckAdapter(truckList);
         recyclerView.setAdapter(adapter);
 
         // Swipe to delete (left) and edit (right)
@@ -63,29 +99,32 @@ public class RiwayatTruckActivity extends AppCompatActivity {
             @Override
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
                 int position = viewHolder.getAdapterPosition();
-                Truck truck = adapter.getItem(position);
-
-                if (direction == ItemTouchHelper.LEFT) {
-                    // Swipe left to delete
-                    firestore.collection("Truck").document(truck.getKodeTruck())
-                            .delete()
-                            .addOnSuccessListener(unused -> {
-                                truckList.remove(position);
-                                adapter.notifyItemRemoved(position);
-                                Toast.makeText(RiwayatTruckActivity.this, "Data truck dihapus", Toast.LENGTH_SHORT).show();
-                            })
-                            .addOnFailureListener(e -> {
-                                Toast.makeText(RiwayatTruckActivity.this, "Gagal hapus data", Toast.LENGTH_SHORT).show();
-                                adapter.notifyItemChanged(position);
-                            });
-                } else if (direction == ItemTouchHelper.RIGHT) {
-                    // Swipe right to edit
-                    Intent intent = new Intent(RiwayatTruckActivity.this, InputTruckActivity.class);
-                    intent.putExtra("kodeTruck", truck.getKodeTruck());
-                    intent.putExtra("namaPengemudi", truck.getNamaPengemudi());
-                    intent.putExtra("isEditMode", true);
-                    startActivity(intent);
-                    adapter.notifyItemChanged(position); // Reset swipe
+                if (position != RecyclerView.NO_POSITION && position < truckList.size()) {
+                    Truck truck = adapter.getItem(position);
+                    if (truck != null && truck.getKodeTruck() != null) {
+                        if (direction == ItemTouchHelper.LEFT) {
+                            firestore.collection("Truck").document(truck.getKodeTruck())
+                                    .delete()
+                                    .addOnSuccessListener(unused -> {
+                                        txtEmptyState.setVisibility(truckList.isEmpty() ? View.VISIBLE : View.GONE);
+                                        Toast.makeText(RiwayatTruckActivity.this, "Data truck dihapus", Toast.LENGTH_SHORT).show();
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        Toast.makeText(RiwayatTruckActivity.this, "Gagal hapus data: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                        adapter.notifyItemChanged(position);
+                                    });
+                        } else if (direction == ItemTouchHelper.RIGHT) {
+                            Intent intent = new Intent(RiwayatTruckActivity.this, InputTruckActivity.class);
+                            intent.putExtra("kodeTruck", truck.getKodeTruck());
+                            intent.putExtra("namaPengemudi", truck.getNamaPengemudi());
+                            intent.putExtra("isEditMode", true);
+                            startActivity(intent);
+                            adapter.notifyItemChanged(position);
+                        }
+                    } else {
+                        Toast.makeText(RiwayatTruckActivity.this, "Data truck tidak valid", Toast.LENGTH_SHORT).show();
+                        adapter.notifyItemChanged(position);
+                    }
                 }
             }
 
@@ -94,12 +133,12 @@ public class RiwayatTruckActivity extends AppCompatActivity {
                                     @NonNull RecyclerView.ViewHolder viewHolder, float dX, float dY,
                                     int actionState, boolean isCurrentlyActive) {
                 new RecyclerViewSwipeDecorator.Builder(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
-                        .addSwipeLeftBackgroundColor(ContextCompat.getColor(RiwayatTruckActivity.this, R.color.red))
-                        .addSwipeLeftActionIcon(R.drawable.baseline_delete_24)
+                        .addSwipeLeftBackgroundColor(ContextCompat.getColor(RiwayatTruckActivity.this, android.R.color.holo_red_light))
+                        .addSwipeLeftActionIcon(android.R.drawable.ic_menu_delete)
                         .addSwipeLeftLabel("Hapus")
                         .setSwipeLeftLabelColor(Color.WHITE)
-                        .addSwipeRightBackgroundColor(ContextCompat.getColor(RiwayatTruckActivity.this, R.color.green))
-                        .addSwipeRightActionIcon(R.drawable.baseline_edit_24)
+                        .addSwipeRightBackgroundColor(ContextCompat.getColor(RiwayatTruckActivity.this, android.R.color.holo_green_light))
+                        .addSwipeRightActionIcon(android.R.drawable.ic_menu_edit)
                         .addSwipeRightLabel("Edit")
                         .setSwipeRightLabelColor(Color.WHITE)
                         .create()
@@ -114,17 +153,36 @@ public class RiwayatTruckActivity extends AppCompatActivity {
     }
 
     private void muatData() {
-        truckList.clear();
-        firestore.collection("Truck").get().addOnSuccessListener(querySnapshot -> {
-            for (QueryDocumentSnapshot doc : querySnapshot) {
-                Truck t = new Truck(
-                        doc.getString("kodeTruck"),
-                        doc.getString("namaPengemudi")
-                );
-                truckList.add(t);
-            }
-            adapter.notifyDataSetChanged();
-        });
+        truckListener = firestore.collection("Truck")
+                .addSnapshotListener((querySnapshot, error) -> {
+                    if (error != null) {
+                        Log.e("RiwayatTruckActivity", "Listener error: " + error.getMessage());
+                        Toast.makeText(this, "Gagal memuat data: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (querySnapshot != null) {
+                        truckList.clear();
+                        for (QueryDocumentSnapshot doc : querySnapshot) {
+                            String kodeTruck = doc.getString("kodeTruck");
+                            String namaPengemudi = doc.getString("namaPengemudi");
+                            if (kodeTruck != null) {
+                                Truck t = new Truck(kodeTruck, namaPengemudi);
+                                truckList.add(t);
+                            }
+                        }
+                        adapter.notifyDataSetChanged();
+                        txtEmptyState.setVisibility(truckList.isEmpty() ? View.VISIBLE : View.GONE);
+                        Log.d("RiwayatTruckActivity", "Loaded " + truckList.size() + " truck items");
+                    }
+                });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (truckListener != null) {
+            truckListener.remove();
+        }
     }
 
     private void setupBottomNav() {
@@ -136,19 +194,31 @@ public class RiwayatTruckActivity extends AppCompatActivity {
             if (id == R.id.nav_home) {
                 startActivity(new Intent(this, MainActivity.class));
                 finish();
-                return true;
             } else if (id == R.id.nav_add) {
                 tampilkanBottomSheetAdd("RiwayatTruck");
-                return true;
             } else if (id == R.id.nav_history) {
-                tampilkanBottomSheetHistory("RiwayatTruck");
-                return true;
+                FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+                if (currentUser != null) {
+                    firestore.collection("Users").document(currentUser.getUid())
+                            .get()
+                            .addOnSuccessListener(documentSnapshot -> {
+                                String role = documentSnapshot.getString("role");
+                                if ("mandor".equals(role)) {
+                                    tampilkanBottomSheetHistory("RiwayatTruck");
+                                } else {
+                                    Toast.makeText(this, "Hanya Mandor yang dapat mengakses riwayat", Toast.LENGTH_SHORT).show();
+                                }
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e("RiwayatTruckActivity", "Failed to load role: " + e.getMessage());
+                                Toast.makeText(this, "Gagal memuat role", Toast.LENGTH_SHORT).show();
+                            });
+                }
             } else if (id == R.id.nav_profile) {
                 startActivity(new Intent(this, AccountActivity.class));
                 finish();
-                return true;
             }
-            return false;
+            return true;
         });
     }
 

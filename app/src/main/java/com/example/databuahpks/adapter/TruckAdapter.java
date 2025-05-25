@@ -14,30 +14,24 @@ import com.example.databuahpks.model.Truck;
 import java.util.List;
 
 public class TruckAdapter extends RecyclerView.Adapter<TruckAdapter.ViewHolder> {
-    public List<Truck> truckList;
-    public OnDeleteClickListener deleteListener;
+    private List<Truck> truckList;
 
-    public interface OnDeleteClickListener {
-        void onDelete(String kodeTruck);
-    }
-
-    public TruckAdapter(List<Truck> truckList, OnDeleteClickListener deleteListener) {
+    public TruckAdapter(List<Truck> truckList) {
         this.truckList = truckList;
-        this.deleteListener = deleteListener;
     }
 
     @NonNull
     @Override
-    public TruckAdapter.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_truck, parent, false);
         return new ViewHolder(v);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull TruckAdapter.ViewHolder holder, int position) {
+    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Truck truck = truckList.get(position);
-        holder.txtKodeTruck.setText(truck.getKodeTruck());
-        holder.txtNamaPengemudi.setText(truck.getNamaPengemudi());
+        holder.txtKodeTruck.setText(truck.getKodeTruck() != null ? truck.getKodeTruck() : "Unknown");
+        holder.txtNamaPengemudi.setText(truck.getNamaPengemudi() != null ? truck.getNamaPengemudi() : "Unknown");
     }
 
     @Override
@@ -46,7 +40,7 @@ public class TruckAdapter extends RecyclerView.Adapter<TruckAdapter.ViewHolder> 
     }
 
     public Truck getItem(int position) {
-        return truckList.get(position);
+        return position >= 0 && position < truckList.size() ? truckList.get(position) : null;
     }
 
     public class ViewHolder extends RecyclerView.ViewHolder {

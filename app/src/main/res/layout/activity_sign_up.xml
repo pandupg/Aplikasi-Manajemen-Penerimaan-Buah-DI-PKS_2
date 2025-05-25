@@ -86,6 +86,38 @@
                     android:padding="12dp"
                     android:layout_marginBottom="16dp" />
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Role"
+                    android:textStyle="bold"
+                    android:textColor="#4CAF50" />
+
+                <RadioGroup
+                    android:id="@+id/radioGroupRole"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="16dp"
+                    android:orientation="vertical">
+
+                    <RadioButton
+                        android:id="@+id/radioPekerja"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Pekerja"
+                        android:textColor="@color/black"
+                        android:textSize="16sp" />
+
+                    <RadioButton
+                        android:id="@+id/radioMandor"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Mandor"
+                        android:textColor="@color/black"
+                        android:textSize="16sp" />
+                </RadioGroup>
+
                 <Button
                     android:id="@+id/btnSignUp"
                     android:layout_width="match_parent"

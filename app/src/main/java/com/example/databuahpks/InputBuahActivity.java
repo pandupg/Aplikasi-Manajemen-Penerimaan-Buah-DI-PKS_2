@@ -5,7 +5,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -16,6 +16,8 @@ import android.widget.Toast;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
@@ -44,7 +46,39 @@ public class InputBuahActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_input_buah);
-        setupBottomNav();
+
+        // Initialize Firestore early
+        firestore = FirebaseFirestore.getInstance();
+
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            startActivity(new Intent(this, SignInActivity.class));
+            finish();
+            return;
+        }
+
+        firestore.collection("Users").document(currentUser.getUid())
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String role = documentSnapshot.getString("role");
+                        if (role == null) {
+                            Toast.makeText(this, "Role tidak ditemukan", Toast.LENGTH_SHORT).show();
+                            FirebaseAuth.getInstance().signOut();
+                            startActivity(new Intent(this, SignInActivity.class));
+                            finish();
+                        }
+                    } else {
+                        Toast.makeText(this, "Data pengguna tidak ditemukan", Toast.LENGTH_SHORT).show();
+                        FirebaseAuth.getInstance().signOut();
+                        startActivity(new Intent(this, SignInActivity.class));
+                        finish();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(this.getClass().getSimpleName(), "Failed to load role: " + e.getMessage());
+                    Toast.makeText(this, "Gagal memuat role: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
 
         // Initialize views
         spinnerTruckPengemudi = findViewById(R.id.spinnerTruckPengemudi);
@@ -55,9 +89,6 @@ public class InputBuahActivity extends AppCompatActivity {
         edtJumlahMentah = findViewById(R.id.edtJumlahMentah);
         edtJumlahBusuk = findViewById(R.id.edtJumlahBusuk);
         btnSimpanBuah = findViewById(R.id.btnSimpanBuah);
-
-        // Initialize Firestore
-        firestore = FirebaseFirestore.getInstance();
 
         // Setup Spinner for truck selection
         truckList.add("Pilih Truck - Pengemudi"); // Placeholder
@@ -92,16 +123,17 @@ public class InputBuahActivity extends AppCompatActivity {
 
         // Check if in edit mode
         Intent intent = getIntent();
-        if (intent.getBooleanExtra("editMode", false)) {
-            isEditMode = true;
+        isEditMode = intent.getBooleanExtra("isEditMode", false);
+        if (isEditMode) {
             buahId = intent.getStringExtra("buahId");
+            btnSimpanBuah.setText("Update");
             // Pre-populate form
             String kodeTruck = intent.getStringExtra("kodeTruck");
             String namaPengemudi = intent.getStringExtra("namaPengemudi");
-            String displayText = kodeTruck + " - " + namaPengemudi;
+            String displayText = (kodeTruck != null && namaPengemudi != null) ? kodeTruck + " - " + namaPengemudi : "";
             if (truckList.contains(displayText)) {
                 spinnerTruckPengemudi.setSelection(adapter.getPosition(displayText));
-            } else {
+            } else if (kodeTruck != null && namaPengemudi != null) {
                 truckList.add(displayText);
                 truckData.put(displayText, new String[]{kodeTruck, namaPengemudi});
                 adapter.notifyDataSetChanged();
@@ -116,10 +148,14 @@ public class InputBuahActivity extends AppCompatActivity {
             edtJumlahLewatMatang.setText(intent.getStringExtra("jumlahLewatMatang"));
             edtJumlahMentah.setText(intent.getStringExtra("jumlahMentah"));
             edtJumlahBusuk.setText(intent.getStringExtra("jumlahBusuk"));
+        } else {
+            btnSimpanBuah.setText("Simpan");
         }
 
         // Save button listener
         btnSimpanBuah.setOnClickListener(v -> saveFruitData());
+
+        setupBottomNav();
     }
 
     private void loadTruckData() {
@@ -142,7 +178,7 @@ public class InputBuahActivity extends AppCompatActivity {
                     if (isEditMode) {
                         String kodeTruck = getIntent().getStringExtra("kodeTruck");
                         String namaPengemudi = getIntent().getStringExtra("namaPengemudi");
-                        String displayText = kodeTruck + " - " + namaPengemudi;
+                        String displayText = (kodeTruck != null && namaPengemudi != null) ? kodeTruck + " - " + namaPengemudi : "";
                         if (truckList.contains(displayText)) {
                             spinnerTruckPengemudi.setSelection(adapter.getPosition(displayText));
                         }
@@ -215,16 +251,13 @@ public class InputBuahActivity extends AppCompatActivity {
             buah.put("tanggalInput", tanggalInput);
             buah.put("waktuInput", waktuInput);
 
-            if (isEditMode) {
+            if (isEditMode && buahId != null) {
                 firestore.collection("Buah").document(buahId)
                         .set(buah)
                         .addOnSuccessListener(aVoid -> {
                             Toast.makeText(this, "Data buah berhasil diperbarui", Toast.LENGTH_SHORT).show();
-                            clearForm();
-                            isEditMode = false;
-                            buahId = null;
-                            spinnerTruckPengemudi.setEnabled(true);
-                            spinnerTruckPengemudi.setSelection(0);
+                            startActivity(new Intent(this, RiwayatBuahActivity.class));
+                            finish();
                         })
                         .addOnFailureListener(e -> {
                             Toast.makeText(this, "Gagal memperbarui: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -256,6 +289,7 @@ public class InputBuahActivity extends AppCompatActivity {
                     Toast.makeText(this, "Data buah berhasil disimpan", Toast.LENGTH_SHORT).show();
                     clearForm();
                     spinnerTruckPengemudi.setSelection(0);
+                    spinnerTruckPengemudi.setEnabled(true);
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(this, "Gagal menyimpan: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -263,7 +297,6 @@ public class InputBuahActivity extends AppCompatActivity {
     }
 
     private void clearForm() {
-        spinnerTruckPengemudi.setSelection(0);
         edtBeratDatang.setText("");
         edtBeratPulang.setText("");
         edtJumlahMatang.setText("");
@@ -281,20 +314,32 @@ public class InputBuahActivity extends AppCompatActivity {
             int id = item.getItemId();
             if (id == R.id.nav_home) {
                 startActivity(new Intent(this, MainActivity.class));
-                finish(); // Close current activity
-                return true;
+                finish();
             } else if (id == R.id.nav_add) {
-                tampilkanBottomSheetAdd("InputBuah"); // Pass current activity identifier
-                return true;
+                tampilkanBottomSheetAdd("InputBuah");
             } else if (id == R.id.nav_history) {
-                tampilkanBottomSheetHistory("InputBuah"); // Pass current activity identifier
-                return true;
+                FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+                if (currentUser != null) {
+                    firestore.collection("Users").document(currentUser.getUid())
+                            .get()
+                            .addOnSuccessListener(documentSnapshot -> {
+                                String role = documentSnapshot.getString("role");
+                                if ("mandor".equals(role)) {
+                                    tampilkanBottomSheetHistory("InputBuah");
+                                } else {
+                                    Toast.makeText(this, "Hanya Mandor yang dapat mengakses riwayat", Toast.LENGTH_SHORT).show();
+                                }
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e("InputBuahActivity", "Failed to load role: " + e.getMessage());
+                                Toast.makeText(this, "Gagal memuat role", Toast.LENGTH_SHORT).show();
+                            });
+                }
             } else if (id == R.id.nav_profile) {
                 startActivity(new Intent(this, AccountActivity.class));
                 finish();
-                return true;
             }
-            return false;
+            return true;
         });
     }
 
@@ -306,10 +351,9 @@ public class InputBuahActivity extends AppCompatActivity {
         Button btnInputTruck = view.findViewById(R.id.btnInputTruck);
         Button btnInputBuah = view.findViewById(R.id.btnInputBuah);
 
-        // Disable button based on current activity
         if (currentActivity.equals("InputBuah")) {
             btnInputBuah.setEnabled(false);
-            btnInputBuah.setAlpha(0.5f); // Visually indicate disabled state
+            btnInputBuah.setAlpha(0.5f);
         } else if (currentActivity.equals("InputTruck")) {
             btnInputTruck.setEnabled(false);
             btnInputTruck.setAlpha(0.5f);
@@ -318,13 +362,13 @@ public class InputBuahActivity extends AppCompatActivity {
         btnInputTruck.setOnClickListener(v -> {
             dialog.dismiss();
             startActivity(new Intent(this, InputTruckActivity.class));
-            finish(); // Close current activity
+            finish();
         });
 
         btnInputBuah.setOnClickListener(v -> {
             dialog.dismiss();
             startActivity(new Intent(this, InputBuahActivity.class));
-            finish(); // Close current activity
+            finish();
         });
 
         dialog.show();
@@ -338,7 +382,6 @@ public class InputBuahActivity extends AppCompatActivity {
         Button btnRiwayatBuah = view.findViewById(R.id.btnRiwayatBuah);
         Button btnRiwayatTruck = view.findViewById(R.id.btnRiwayatTruck);
 
-        // Disable button based on current activity
         if (currentActivity.equals("RiwayatBuah")) {
             btnRiwayatBuah.setEnabled(false);
             btnRiwayatBuah.setAlpha(0.5f);
@@ -350,13 +393,13 @@ public class InputBuahActivity extends AppCompatActivity {
         btnRiwayatBuah.setOnClickListener(v -> {
             dialog.dismiss();
             startActivity(new Intent(this, RiwayatBuahActivity.class));
-            finish(); // Close current activity
+            finish();
         });
 
         btnRiwayatTruck.setOnClickListener(v -> {
             dialog.dismiss();
             startActivity(new Intent(this, RiwayatTruckActivity.class));
-            finish(); // Close current activity
+            finish();
         });
 
         dialog.show();

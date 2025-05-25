@@ -17,6 +17,8 @@ import android.widget.Toast;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -39,13 +41,43 @@ public class InputTruckActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_input_truck);
-        setupBottomNav();
+
+        // Initialize Firestore early
+        firestore = FirebaseFirestore.getInstance();
+
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            startActivity(new Intent(this, SignInActivity.class));
+            finish();
+            return;
+        }
+
+        firestore.collection("Users").document(currentUser.getUid())
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String role = documentSnapshot.getString("role");
+                        if (role == null) {
+                            Toast.makeText(this, "Role tidak ditemukan", Toast.LENGTH_SHORT).show();
+                            FirebaseAuth.getInstance().signOut();
+                            startActivity(new Intent(this, SignInActivity.class));
+                            finish();
+                        }
+                    } else {
+                        Toast.makeText(this, "Data pengguna tidak ditemukan", Toast.LENGTH_SHORT).show();
+                        FirebaseAuth.getInstance().signOut();
+                        startActivity(new Intent(this, SignInActivity.class));
+                        finish();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(this.getClass().getSimpleName(), "Failed to load role: " + e.getMessage());
+                    Toast.makeText(this, "Gagal memuat role: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
 
         edtKodeTruck = findViewById(R.id.edtKodeTruck);
         edtNamaPengemudi = findViewById(R.id.edtNamaPengemudi);
         btnSimpan = findViewById(R.id.btnSimpanTruck);
-
-        firestore = FirebaseFirestore.getInstance();
 
         kodeList = new ArrayList<>();
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, kodeList);
@@ -61,7 +93,7 @@ public class InputTruckActivity extends AppCompatActivity {
                 edtKodeTruck.setText(kodeTruck);
                 edtKodeTruck.setEnabled(false); // Disable kodeTruck editing
                 edtNamaPengemudi.setText(namaPengemudi);
-                btnSimpan.setText("Update"); // Change button text for clarity
+                btnSimpan.setText("Update");
             }
         } else {
             // Load suggestions only in non-edit mode
@@ -70,27 +102,9 @@ public class InputTruckActivity extends AppCompatActivity {
 
         edtKodeTruck.setThreshold(1);
         edtKodeTruck.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus && edtKodeTruck.getText().length() > 0 && !isEditMode) {
+            if (hasFocus && !isEditMode && !kodeList.isEmpty()) {
                 Log.d("InputTruckActivity", "Focus gained, showing dropdown with kodeList: " + kodeList.toString());
                 edtKodeTruck.showDropDown();
-            }
-        });
-
-        edtKodeTruck.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (s.length() > 0 && !isEditMode) {
-                    Log.d("InputTruckActivity", "Text changed to: " + s + ", showing dropdown");
-                    edtKodeTruck.showDropDown();
-                }
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
             }
         });
 
@@ -196,6 +210,8 @@ public class InputTruckActivity extends AppCompatActivity {
                 });
             }
         });
+
+        setupBottomNav();
     }
 
     private void loadTruckSuggestions() {
@@ -222,9 +238,6 @@ public class InputTruckActivity extends AppCompatActivity {
                         Collections.sort(kodeList);
                         Collections.reverse(kodeList);
                         Log.d("InputTruckActivity", "Before adapter update, kodeList: " + kodeList.toString());
-                        // Create new adapter to avoid caching issues
-                        adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, kodeList);
-                        edtKodeTruck.setAdapter(adapter);
                         adapter.notifyDataSetChanged();
                         Log.d("InputTruckActivity", "After adapter update, adapter count: " + adapter.getCount());
                         // Force dropdown refresh
@@ -260,9 +273,6 @@ public class InputTruckActivity extends AppCompatActivity {
                     Collections.sort(kodeList);
                     Collections.reverse(kodeList);
                     Log.d("InputTruckActivity", "Before adapter update (fallback), kodeList: " + kodeList.toString());
-                    // Create new adapter to avoid caching issues
-                    adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, kodeList);
-                    edtKodeTruck.setAdapter(adapter);
                     adapter.notifyDataSetChanged();
                     Log.d("InputTruckActivity", "After adapter update (fallback), adapter count: " + adapter.getCount());
                     edtKodeTruck.post(() -> {
@@ -285,16 +295,18 @@ public class InputTruckActivity extends AppCompatActivity {
         docRef.set(truck)
                 .addOnSuccessListener(aVoid -> {
                     Log.d("InputTruckActivity", "Save successful: " + truck.toString());
-                    // Clear inputs
-                    edtKodeTruck.setText("");
-                    edtNamaPengemudi.setText("");
-                    edtKodeTruck.requestFocus();
-
                     if (isEditMode) {
-                        // Return to RiwayatTruckActivity after update
+                        Toast.makeText(this, "Data truck berhasil diperbarui", Toast.LENGTH_SHORT).show();
+                        isEditMode = false;
+                        btnSimpan.setText("Simpan");
                         finish();
+                    } else {
+                        Toast.makeText(this, "Data truck berhasil disimpan", Toast.LENGTH_SHORT).show();
+                        // Clear inputs
+                        edtKodeTruck.setText("");
+                        edtNamaPengemudi.setText("");
+                        edtKodeTruck.requestFocus();
                     }
-                    // Listener will handle dropdown updates
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(this, "Gagal menyimpan: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -320,19 +332,31 @@ public class InputTruckActivity extends AppCompatActivity {
             if (id == R.id.nav_home) {
                 startActivity(new Intent(this, MainActivity.class));
                 finish();
-                return true;
             } else if (id == R.id.nav_add) {
                 tampilkanBottomSheetAdd("InputTruck");
-                return true;
             } else if (id == R.id.nav_history) {
-                tampilkanBottomSheetHistory("InputTruck");
-                return true;
+                FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+                if (currentUser != null) {
+                    firestore.collection("Users").document(currentUser.getUid())
+                            .get()
+                            .addOnSuccessListener(documentSnapshot -> {
+                                String role = documentSnapshot.getString("role");
+                                if ("mandor".equals(role)) {
+                                    tampilkanBottomSheetHistory("InputTruck");
+                                } else {
+                                    Toast.makeText(this, "Hanya Mandor yang dapat mengakses riwayat", Toast.LENGTH_SHORT).show();
+                                }
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e("InputTruckActivity", "Failed to load role: " + e.getMessage());
+                                Toast.makeText(this, "Gagal memuat role", Toast.LENGTH_SHORT).show();
+                            });
+                }
             } else if (id == R.id.nav_profile) {
                 startActivity(new Intent(this, AccountActivity.class));
                 finish();
-                return true;
             }
-            return false;
+            return true;
         });
     }
 

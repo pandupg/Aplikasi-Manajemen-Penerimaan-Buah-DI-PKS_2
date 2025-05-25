@@ -20,6 +20,8 @@ import com.github.mikephil.charting.data.BarDataSet;
 import com.github.mikephil.charting.data.BarEntry;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
@@ -48,6 +50,39 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Initialize Firestore early
+        firestore = FirebaseFirestore.getInstance();
+
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            startActivity(new Intent(this, SignInActivity.class));
+            finish();
+            return;
+        }
+
+        firestore.collection("Users").document(currentUser.getUid())
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String role = documentSnapshot.getString("role");
+                        if (role == null) {
+                            Toast.makeText(this, "Role tidak ditemukan", Toast.LENGTH_SHORT).show();
+                            FirebaseAuth.getInstance().signOut();
+                            startActivity(new Intent(this, SignInActivity.class));
+                            finish();
+                        }
+                    } else {
+                        Toast.makeText(this, "Data pengguna tidak ditemukan", Toast.LENGTH_SHORT).show();
+                        FirebaseAuth.getInstance().signOut();
+                        startActivity(new Intent(this, SignInActivity.class));
+                        finish();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(this.getClass().getSimpleName(), "Failed to load role: " + e.getMessage());
+                    Toast.makeText(this, "Gagal memuat role: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+
         // Force light theme
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
 
@@ -61,8 +96,7 @@ public class MainActivity extends AppCompatActivity {
         txtTotalBuahLewatMatang = findViewById(R.id.txtTotalBuahLewatMatang);
         barChart = findViewById(R.id.barChart);
 
-        // Initialize Firestore and SharedPreferences
-        firestore = FirebaseFirestore.getInstance();
+        // Initialize SharedPreferences
         prefs = getSharedPreferences("DataBuahPrefs", MODE_PRIVATE);
 
         // Insert dummy data from file if not already done
@@ -260,57 +294,98 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupBottomNav() {
         BottomNavigationView nav = findViewById(R.id.bottom_nav);
-        nav.setSelectedItemId(R.id.nav_home); // Default
+        nav.setSelectedItemId(R.id.nav_home);
+
         nav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
-            if (id == R.id.nav_add) {
-                tampilkanBottomSheetAdd(); // For input
+            if (id == R.id.nav_home) {
+                // Already in MainActivity
+                return true;
+            } else if (id == R.id.nav_add) {
+                tampilkanBottomSheetAdd("Main");
             } else if (id == R.id.nav_history) {
-                tampilkanBottomSheetHistory(); // For history
+                FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+                if (currentUser != null) {
+                    FirebaseFirestore.getInstance().collection("Users").document(currentUser.getUid())
+                            .get()
+                            .addOnSuccessListener(documentSnapshot -> {
+                                String role = documentSnapshot.getString("role");
+                                if ("mandor".equals(role)) {
+                                    tampilkanBottomSheetHistory("Main");
+                                } else {
+                                    Toast.makeText(this, "Hanya Mandor yang dapat mengakses riwayat", Toast.LENGTH_SHORT).show();
+                                }
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e("MainActivity", "Failed to load role: " + e.getMessage());
+                                Toast.makeText(this, "Gagal memuat role", Toast.LENGTH_SHORT).show();
+                            });
+                }
             } else if (id == R.id.nav_profile) {
                 startActivity(new Intent(this, AccountActivity.class));
+                finish();
             }
             return true;
         });
     }
 
-    private void tampilkanBottomSheetAdd() {
-        View view = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_add, null);
+    private void tampilkanBottomSheetAdd(String currentActivity) {
+        View view = getLayoutInflater().inflate(R.layout.bottom_sheet_add, null);
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         dialog.setContentView(view);
 
         Button btnInputTruck = view.findViewById(R.id.btnInputTruck);
         Button btnInputBuah = view.findViewById(R.id.btnInputBuah);
 
+        if (currentActivity.equals("InputBuah")) {
+            btnInputBuah.setEnabled(false);
+            btnInputBuah.setAlpha(0.5f);
+        } else if (currentActivity.equals("InputTruck")) {
+            btnInputTruck.setEnabled(false);
+            btnInputTruck.setAlpha(0.5f);
+        }
+
         btnInputTruck.setOnClickListener(v -> {
             dialog.dismiss();
             startActivity(new Intent(this, InputTruckActivity.class));
+            finish();
         });
 
         btnInputBuah.setOnClickListener(v -> {
             dialog.dismiss();
             startActivity(new Intent(this, InputBuahActivity.class));
+            finish();
         });
 
         dialog.show();
     }
 
-    private void tampilkanBottomSheetHistory() {
-        View view = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_history, null);
+    private void tampilkanBottomSheetHistory(String currentActivity) {
+        View view = getLayoutInflater().inflate(R.layout.bottom_sheet_history, null);
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         dialog.setContentView(view);
 
         Button btnRiwayatBuah = view.findViewById(R.id.btnRiwayatBuah);
         Button btnRiwayatTruck = view.findViewById(R.id.btnRiwayatTruck);
 
+        if (currentActivity.equals("RiwayatBuah")) {
+            btnRiwayatBuah.setEnabled(false);
+            btnRiwayatBuah.setAlpha(0.5f);
+        } else if (currentActivity.equals("RiwayatTruck")) {
+            btnRiwayatTruck.setEnabled(false);
+            btnRiwayatTruck.setAlpha(0.5f);
+        }
+
         btnRiwayatBuah.setOnClickListener(v -> {
             dialog.dismiss();
             startActivity(new Intent(this, RiwayatBuahActivity.class));
+            finish();
         });
 
         btnRiwayatTruck.setOnClickListener(v -> {
             dialog.dismiss();
             startActivity(new Intent(this, RiwayatTruckActivity.class));
+            finish();
         });
 
         dialog.show();
