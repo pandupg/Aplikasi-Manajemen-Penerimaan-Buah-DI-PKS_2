@@ -104,6 +104,8 @@ public class InputTruckActivity extends AppCompatActivity {
         edtKodeTruck.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus && !isEditMode && !kodeList.isEmpty()) {
                 Log.d("InputTruckActivity", "Focus gained, showing dropdown with kodeList: " + kodeList.toString());
+                // Ensure adapter is up-to-date before showing dropdown
+                adapter.notifyDataSetChanged();
                 edtKodeTruck.showDropDown();
             }
         });
@@ -152,9 +154,10 @@ public class InputTruckActivity extends AppCompatActivity {
 
                     adapter.getFilter().filter(currentText);
 
+                    // Check if input matches any kode in kodeList
                     boolean cocok = false;
                     for (String kode : kodeList) {
-                        if (kode.contains(currentText)) {
+                        if (kode.toUpperCase().startsWith(currentText)) {
                             cocok = true;
                             break;
                         }
@@ -162,6 +165,8 @@ public class InputTruckActivity extends AppCompatActivity {
 
                     if (cocok && !currentText.isEmpty()) {
                         Log.d("InputTruckActivity", "Match found for: " + currentText + ", showing dropdown");
+                        // Ensure adapter is up-to-date
+                        adapter.notifyDataSetChanged();
                         edtKodeTruck.showDropDown();
                     } else {
                         Log.d("InputTruckActivity", "No match for: " + currentText + ", hiding dropdown");
@@ -238,17 +243,21 @@ public class InputTruckActivity extends AppCompatActivity {
                         Collections.sort(kodeList);
                         Collections.reverse(kodeList);
                         Log.d("InputTruckActivity", "Before adapter update, kodeList: " + kodeList.toString());
+                        // Create a new adapter to ensure UI refresh
+                        adapter = new ArrayAdapter<>(InputTruckActivity.this,
+                                android.R.layout.simple_dropdown_item_1line, kodeList);
+                        edtKodeTruck.setAdapter(adapter);
                         adapter.notifyDataSetChanged();
                         Log.d("InputTruckActivity", "After adapter update, adapter count: " + adapter.getCount());
                         // Force dropdown refresh
-                        edtKodeTruck.post(() -> {
-                            if (!isEditMode && !kodeList.isEmpty()) {
+                        if (!isEditMode && !kodeList.isEmpty()) {
+                            runOnUiThread(() -> {
                                 edtKodeTruck.setText("");
                                 edtKodeTruck.requestFocus();
                                 Log.d("InputTruckActivity", "Forcing dropdown show with kodeList: " + kodeList.toString());
                                 edtKodeTruck.showDropDown();
-                            }
-                        });
+                            });
+                        }
                         Log.d("InputTruckActivity", "kodeList terupdate: " + kodeList.toString() + ", count: " + count);
                     } else {
                         Log.w("InputTruckActivity", "QuerySnapshot is null");
@@ -273,16 +282,20 @@ public class InputTruckActivity extends AppCompatActivity {
                     Collections.sort(kodeList);
                     Collections.reverse(kodeList);
                     Log.d("InputTruckActivity", "Before adapter update (fallback), kodeList: " + kodeList.toString());
+                    // Create a new adapter to ensure UI refresh
+                    adapter = new ArrayAdapter<>(InputTruckActivity.this,
+                            android.R.layout.simple_dropdown_item_1line, kodeList);
+                    edtKodeTruck.setAdapter(adapter);
                     adapter.notifyDataSetChanged();
                     Log.d("InputTruckActivity", "After adapter update (fallback), adapter count: " + adapter.getCount());
-                    edtKodeTruck.post(() -> {
-                        if (!isEditMode && !kodeList.isEmpty()) {
+                    if (!isEditMode && !kodeList.isEmpty()) {
+                        runOnUiThread(() -> {
                             edtKodeTruck.setText("");
                             edtKodeTruck.requestFocus();
                             Log.d("InputTruckActivity", "Forcing dropdown show (fallback) with kodeList: " + kodeList.toString());
                             edtKodeTruck.showDropDown();
-                        }
-                    });
+                        });
+                    }
                     Log.d("InputTruckActivity", "Fallback kodeList: " + kodeList.toString() + ", count: " + count);
                 })
                 .addOnFailureListener(e -> {
