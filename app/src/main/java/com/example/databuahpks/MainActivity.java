@@ -267,6 +267,8 @@ public class MainActivity extends AppCompatActivity {
                 tampilkanBottomSheetAdd(); // For input
             } else if (id == R.id.nav_history) {
                 tampilkanBottomSheetHistory(); // For history
+            } else if (id == R.id.nav_profile) {
+                startActivity(new Intent(this, AccountActivity.class));
             }
             return true;
         });

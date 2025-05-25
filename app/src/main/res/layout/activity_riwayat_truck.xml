@@ -20,22 +20,9 @@
         android:textSize="20sp"
         android:textStyle="bold" />
 
-    <TextView
-        android:id="@+id/title"
-        android:layout_below="@+id/headerTitle"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Riwayat Truck"
-        android:textSize="20sp"
-        android:padding="16dp"
-        android:textStyle="bold"
-        android:gravity="center"
-        android:background="@color/light_gray"
-        android:textColor="@color/black" />
-
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerViewTruck"
-        android:layout_below="@id/title"
+        android:layout_below="@id/headerTitle"
         android:layout_above="@id/bottom_nav"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

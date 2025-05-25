@@ -128,58 +128,87 @@ public class RiwayatTruckActivity extends AppCompatActivity {
     }
 
     private void setupBottomNav() {
-        BottomNavigationView bottomNav = findViewById(R.id.bottom_nav);
-        bottomNav.setSelectedItemId(R.id.nav_history);
+        BottomNavigationView nav = findViewById(R.id.bottom_nav);
+        nav.setSelectedItemId(R.id.nav_history);
 
-        bottomNav.setOnItemSelectedListener(item -> {
+        nav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
-            if (id == R.id.nav_add) {
-                tampilkanBottomSheetAdd();
-            } else if (id == R.id.nav_home) {
+            if (id == R.id.nav_home) {
                 startActivity(new Intent(this, MainActivity.class));
-                overridePendingTransition(0, 0);
+                finish();
+                return true;
+            } else if (id == R.id.nav_add) {
+                tampilkanBottomSheetAdd("RiwayatTruck");
+                return true;
+            } else if (id == R.id.nav_history) {
+                tampilkanBottomSheetHistory("RiwayatTruck");
+                return true;
+            } else if (id == R.id.nav_profile) {
+                startActivity(new Intent(this, AccountActivity.class));
+                finish();
+                return true;
             }
-            return true;
+            return false;
         });
     }
 
-    private void tampilkanBottomSheetAdd() {
-        View view = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_add, null);
+    private void tampilkanBottomSheetAdd(String currentActivity) {
+        View view = getLayoutInflater().inflate(R.layout.bottom_sheet_add, null);
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         dialog.setContentView(view);
 
         Button btnInputTruck = view.findViewById(R.id.btnInputTruck);
         Button btnInputBuah = view.findViewById(R.id.btnInputBuah);
 
+        if (currentActivity.equals("InputBuah")) {
+            btnInputBuah.setEnabled(false);
+            btnInputBuah.setAlpha(0.5f);
+        } else if (currentActivity.equals("InputTruck")) {
+            btnInputTruck.setEnabled(false);
+            btnInputTruck.setAlpha(0.5f);
+        }
+
         btnInputTruck.setOnClickListener(v -> {
             dialog.dismiss();
             startActivity(new Intent(this, InputTruckActivity.class));
+            finish();
         });
 
         btnInputBuah.setOnClickListener(v -> {
             dialog.dismiss();
             startActivity(new Intent(this, InputBuahActivity.class));
+            finish();
         });
 
         dialog.show();
     }
 
-    private void tampilkanBottomSheetHistory() {
-        View view = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_history, null);
+    private void tampilkanBottomSheetHistory(String currentActivity) {
+        View view = getLayoutInflater().inflate(R.layout.bottom_sheet_history, null);
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         dialog.setContentView(view);
 
         Button btnRiwayatBuah = view.findViewById(R.id.btnRiwayatBuah);
         Button btnRiwayatTruck = view.findViewById(R.id.btnRiwayatTruck);
 
+        if (currentActivity.equals("RiwayatBuah")) {
+            btnRiwayatBuah.setEnabled(false);
+            btnRiwayatBuah.setAlpha(0.5f);
+        } else if (currentActivity.equals("RiwayatTruck")) {
+            btnRiwayatTruck.setEnabled(false);
+            btnRiwayatTruck.setAlpha(0.5f);
+        }
+
         btnRiwayatBuah.setOnClickListener(v -> {
             dialog.dismiss();
             startActivity(new Intent(this, RiwayatBuahActivity.class));
+            finish();
         });
 
         btnRiwayatTruck.setOnClickListener(v -> {
             dialog.dismiss();
             startActivity(new Intent(this, RiwayatTruckActivity.class));
+            finish();
         });
 
         dialog.show();

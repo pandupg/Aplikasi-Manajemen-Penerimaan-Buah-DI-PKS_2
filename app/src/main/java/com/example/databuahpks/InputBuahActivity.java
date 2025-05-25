@@ -55,6 +55,7 @@ public class InputBuahActivity extends AppCompatActivity {
         edtJumlahMentah = findViewById(R.id.edtJumlahMentah);
         edtJumlahBusuk = findViewById(R.id.edtJumlahBusuk);
         btnSimpanBuah = findViewById(R.id.btnSimpanBuah);
+
         // Initialize Firestore
         firestore = FirebaseFirestore.getInstance();
 
@@ -115,7 +116,6 @@ public class InputBuahActivity extends AppCompatActivity {
             edtJumlahLewatMatang.setText(intent.getStringExtra("jumlahLewatMatang"));
             edtJumlahMentah.setText(intent.getStringExtra("jumlahMentah"));
             edtJumlahBusuk.setText(intent.getStringExtra("jumlahBusuk"));
-            // tanggalInput and waktuInput are auto-generated, so not pre-populated
         }
 
         // Save button listener
@@ -139,7 +139,6 @@ public class InputBuahActivity extends AppCompatActivity {
                     }
                     Collections.sort(truckList.subList(1, truckList.size())); // Sort without placeholder
                     adapter.notifyDataSetChanged();
-                    // If in edit mode, ensure spinner is set correctly after data is loaded
                     if (isEditMode) {
                         String kodeTruck = getIntent().getStringExtra("kodeTruck");
                         String namaPengemudi = getIntent().getStringExtra("namaPengemudi");
@@ -155,7 +154,6 @@ public class InputBuahActivity extends AppCompatActivity {
     }
 
     private void saveFruitData() {
-        // Get input values
         String beratDatangStr = edtBeratDatang.getText().toString().trim();
         String beratPulangStr = edtBeratPulang.getText().toString().trim();
         String jumlahMatangStr = edtJumlahMatang.getText().toString().trim();
@@ -163,7 +161,6 @@ public class InputBuahActivity extends AppCompatActivity {
         String jumlahMentahStr = edtJumlahMentah.getText().toString().trim();
         String jumlahBusukStr = edtJumlahBusuk.getText().toString().trim();
 
-        // Validate inputs
         if (selectedKodeTruck == null || selectedNamaPengemudi == null) {
             Toast.makeText(this, "Pilih Truck dan Pengemudi yang valid", Toast.LENGTH_SHORT).show();
             return;
@@ -194,7 +191,6 @@ public class InputBuahActivity extends AppCompatActivity {
         }
 
         try {
-            // Parse numeric inputs
             double beratDatang = Double.parseDouble(beratDatangStr);
             double beratPulang = Double.parseDouble(beratPulangStr);
             int jumlahMatang = Integer.parseInt(jumlahMatangStr);
@@ -202,13 +198,11 @@ public class InputBuahActivity extends AppCompatActivity {
             int jumlahMentah = Integer.parseInt(jumlahMentahStr);
             int jumlahBusuk = Integer.parseInt(jumlahBusukStr);
 
-            // Auto-generate tanggalInput and waktuInput for new entries
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
             SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
             String tanggalInput = dateFormat.format(new Date());
             String waktuInput = timeFormat.format(new Date());
 
-            // Create data map for Firestore
             HashMap<String, Object> buah = new HashMap<>();
             buah.put("kodeTruck", selectedKodeTruck);
             buah.put("namaPengemudi", selectedNamaPengemudi);
@@ -222,22 +216,20 @@ public class InputBuahActivity extends AppCompatActivity {
             buah.put("waktuInput", waktuInput);
 
             if (isEditMode) {
-                // Update existing document
                 firestore.collection("Buah").document(buahId)
                         .set(buah)
                         .addOnSuccessListener(aVoid -> {
                             Toast.makeText(this, "Data buah berhasil diperbarui", Toast.LENGTH_SHORT).show();
-                            clearForm(); // Clear form after update
-                            isEditMode = false; // Reset edit mode
-                            buahId = null; // Clear buahId
-                            spinnerTruckPengemudi.setEnabled(true); // Re-enable spinner
-                            spinnerTruckPengemudi.setSelection(0); // Reset spinner
+                            clearForm();
+                            isEditMode = false;
+                            buahId = null;
+                            spinnerTruckPengemudi.setEnabled(true);
+                            spinnerTruckPengemudi.setSelection(0);
                         })
                         .addOnFailureListener(e -> {
                             Toast.makeText(this, "Gagal memperbarui: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                         });
             } else {
-                // Create new document with unique ID
                 String documentId = selectedKodeTruck + "_" + tanggalInput + "_" + waktuInput;
                 com.google.firebase.firestore.DocumentReference docRef = firestore.collection("Buah").document(documentId);
                 docRef.get().addOnSuccessListener(documentSnapshot -> {
@@ -253,7 +245,6 @@ public class InputBuahActivity extends AppCompatActivity {
                     }
                 });
             }
-
         } catch (NumberFormatException e) {
             Toast.makeText(this, "Masukkan angka yang valid untuk berat dan jumlah", Toast.LENGTH_SHORT).show();
         }
@@ -263,8 +254,8 @@ public class InputBuahActivity extends AppCompatActivity {
         docRef.set(buah)
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(this, "Data buah berhasil disimpan", Toast.LENGTH_SHORT).show();
-                    clearForm(); // Clear form after saving
-                    spinnerTruckPengemudi.setSelection(0); // Reset to placeholder
+                    clearForm();
+                    spinnerTruckPengemudi.setSelection(0);
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(this, "Gagal menyimpan: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -272,13 +263,14 @@ public class InputBuahActivity extends AppCompatActivity {
     }
 
     private void clearForm() {
-        spinnerTruckPengemudi.setSelection(0); // Reset to placeholder
+        spinnerTruckPengemudi.setSelection(0);
         edtBeratDatang.setText("");
         edtBeratPulang.setText("");
         edtJumlahMatang.setText("");
         edtJumlahLewatMatang.setText("");
         edtJumlahMentah.setText("");
         edtJumlahBusuk.setText("");
+        edtBeratDatang.requestFocus();
     }
 
     private void setupBottomNav() {
@@ -289,14 +281,56 @@ public class InputBuahActivity extends AppCompatActivity {
             int id = item.getItemId();
             if (id == R.id.nav_home) {
                 startActivity(new Intent(this, MainActivity.class));
+                finish(); // Close current activity
+                return true;
+            } else if (id == R.id.nav_add) {
+                tampilkanBottomSheetAdd("InputBuah"); // Pass current activity identifier
+                return true;
             } else if (id == R.id.nav_history) {
-                tampilkanBottomSheetHistory();
+                tampilkanBottomSheetHistory("InputBuah"); // Pass current activity identifier
+                return true;
+            } else if (id == R.id.nav_profile) {
+                startActivity(new Intent(this, AccountActivity.class));
+                finish();
+                return true;
             }
-            return true;
+            return false;
         });
     }
 
-    private void tampilkanBottomSheetHistory() {
+    private void tampilkanBottomSheetAdd(String currentActivity) {
+        View view = getLayoutInflater().inflate(R.layout.bottom_sheet_add, null);
+        BottomSheetDialog dialog = new BottomSheetDialog(this);
+        dialog.setContentView(view);
+
+        Button btnInputTruck = view.findViewById(R.id.btnInputTruck);
+        Button btnInputBuah = view.findViewById(R.id.btnInputBuah);
+
+        // Disable button based on current activity
+        if (currentActivity.equals("InputBuah")) {
+            btnInputBuah.setEnabled(false);
+            btnInputBuah.setAlpha(0.5f); // Visually indicate disabled state
+        } else if (currentActivity.equals("InputTruck")) {
+            btnInputTruck.setEnabled(false);
+            btnInputTruck.setAlpha(0.5f);
+        }
+
+        btnInputTruck.setOnClickListener(v -> {
+            dialog.dismiss();
+            startActivity(new Intent(this, InputTruckActivity.class));
+            finish(); // Close current activity
+        });
+
+        btnInputBuah.setOnClickListener(v -> {
+            dialog.dismiss();
+            startActivity(new Intent(this, InputBuahActivity.class));
+            finish(); // Close current activity
+        });
+
+        dialog.show();
+    }
+
+    private void tampilkanBottomSheetHistory(String currentActivity) {
         View view = getLayoutInflater().inflate(R.layout.bottom_sheet_history, null);
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         dialog.setContentView(view);
@@ -304,14 +338,25 @@ public class InputBuahActivity extends AppCompatActivity {
         Button btnRiwayatBuah = view.findViewById(R.id.btnRiwayatBuah);
         Button btnRiwayatTruck = view.findViewById(R.id.btnRiwayatTruck);
 
+        // Disable button based on current activity
+        if (currentActivity.equals("RiwayatBuah")) {
+            btnRiwayatBuah.setEnabled(false);
+            btnRiwayatBuah.setAlpha(0.5f);
+        } else if (currentActivity.equals("RiwayatTruck")) {
+            btnRiwayatTruck.setEnabled(false);
+            btnRiwayatTruck.setAlpha(0.5f);
+        }
+
         btnRiwayatBuah.setOnClickListener(v -> {
             dialog.dismiss();
             startActivity(new Intent(this, RiwayatBuahActivity.class));
+            finish(); // Close current activity
         });
 
         btnRiwayatTruck.setOnClickListener(v -> {
             dialog.dismiss();
             startActivity(new Intent(this, RiwayatTruckActivity.class));
+            finish(); // Close current activity
         });
 
         dialog.show();
