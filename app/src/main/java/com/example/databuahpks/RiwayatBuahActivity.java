@@ -1,5 +1,7 @@
 package com.example.databuahpks;
 
+import android.app.AlertDialog;
+import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.graphics.Canvas;
 import android.graphics.drawable.ColorDrawable;
@@ -7,7 +9,10 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -24,19 +29,32 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 
 import com.example.databuahpks.BuahAdapter;
 
 public class RiwayatBuahActivity extends AppCompatActivity {
     private RecyclerView recyclerViewBuah;
     private TextView txtEmptyState;
+    private Spinner spinnerKodeTruck;
+    private Button btnSelectDate, btnResetFilter;
+    private Spinner spinnerSort;
     private BuahAdapter adapter;
-    private ArrayList<HashMap<String, Object>> buahList;
+    private ArrayList<HashMap<String, Object>> buahList; // Master list
+    private ArrayList<HashMap<String, Object>> filteredBuahList; // Displayed list
+    private ArrayList<String> truckList; // Spinner items
+    private HashMap<String, String> truckMap; // Display text to kodeTruck
     private FirebaseFirestore firestore;
-    private ListenerRegistration buahListener;
+    private ListenerRegistration buahListener, truckListener;
     private BuahAdapter.OnItemClickListener itemClickListener;
+    private String selectedDate = null;
+    private String selectedKodeTruck = null; // null means all trucks
+    private String sortOption = "Newest"; // Default sort
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,7 +99,28 @@ public class RiwayatBuahActivity extends AppCompatActivity {
 
         recyclerViewBuah = findViewById(R.id.recyclerViewBuah);
         txtEmptyState = findViewById(R.id.txtEmptyState);
+        spinnerKodeTruck = findViewById(R.id.spinnerKodeTruck);
+        btnSelectDate = findViewById(R.id.btnSelectDate);
+        btnResetFilter = findViewById(R.id.btnResetFilter);
+        spinnerSort = findViewById(R.id.spinnerSort);
         buahList = new ArrayList<>();
+        filteredBuahList = new ArrayList<>();
+        truckList = new ArrayList<>();
+        truckMap = new HashMap<>();
+
+        // Setup truck spinner
+        truckList.add("Semua Truck");
+        ArrayAdapter<String> truckAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, truckList);
+        truckAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerKodeTruck.setAdapter(truckAdapter);
+        loadTruckData();
+
+        // Setup sort spinner
+        ArrayAdapter<String> sortAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item,
+                new String[]{"Newest", "Oldest", "Kode Truck"});
+        sortAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerSort.setAdapter(sortAdapter);
+        spinnerSort.setSelection(0); // Default to Newest
 
         itemClickListener = new BuahAdapter.OnItemClickListener() {
             @Override
@@ -96,9 +135,57 @@ public class RiwayatBuahActivity extends AppCompatActivity {
             }
         };
 
-        adapter = new BuahAdapter(buahList, itemClickListener);
+        adapter = new BuahAdapter(filteredBuahList, itemClickListener);
         recyclerViewBuah.setLayoutManager(new LinearLayoutManager(this));
         recyclerViewBuah.setAdapter(adapter);
+
+        // Setup truck selection
+        spinnerKodeTruck.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                String selected = parent.getItemAtPosition(position).toString();
+                selectedKodeTruck = selected.equals("Semua Truck") ? null : truckMap.get(selected);
+                filterAndSortData();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                selectedKodeTruck = null;
+                filterAndSortData();
+            }
+        });
+
+        // Setup date picker
+        btnSelectDate.setOnClickListener(v -> {
+            DatePickerDialog datePickerDialog = new DatePickerDialog(this,
+                    (view, year, month, dayOfMonth) -> {
+                        selectedDate = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, dayOfMonth);
+                        btnSelectDate.setText("Tanggal: " + selectedDate);
+                        filterAndSortData();
+                    }, 2025, 11, 18); // Default to 18 Dec 2025
+            datePickerDialog.show();
+        });
+
+        // Setup reset filter
+        btnResetFilter.setOnClickListener(v -> {
+            selectedDate = null;
+            selectedKodeTruck = null;
+            btnSelectDate.setText("Pilih Tanggal");
+            spinnerKodeTruck.setSelection(0); // Select "Semua Truck"
+            filterAndSortData();
+        });
+
+        // Setup sort selection
+        spinnerSort.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                sortOption = parent.getItemAtPosition(position).toString();
+                filterAndSortData();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
 
         // Setup swipe-to-delete (left) and swipe-to-edit (right)
         ItemTouchHelper.SimpleCallback simpleCallback = new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
@@ -110,10 +197,15 @@ public class RiwayatBuahActivity extends AppCompatActivity {
             @Override
             public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
                 int position = viewHolder.getAdapterPosition();
-                if (position != RecyclerView.NO_POSITION && position < buahList.size()) {
-                    HashMap<String, Object> buah = buahList.get(position);
+                if (position != RecyclerView.NO_POSITION && position < filteredBuahList.size()) {
+                    HashMap<String, Object> buah = filteredBuahList.get(position);
                     if (direction == ItemTouchHelper.LEFT) {
-                        itemClickListener.onDeleteClick(buah);
+                        new AlertDialog.Builder(RiwayatBuahActivity.this)
+                                .setTitle("Konfirmasi")
+                                .setMessage("Hapus data buah ini?")
+                                .setPositiveButton("Hapus", (dialog, which) -> itemClickListener.onDeleteClick(buah))
+                                .setNegativeButton("Batal", (dialog, which) -> adapter.notifyItemChanged(position))
+                                .show();
                     } else if (direction == ItemTouchHelper.RIGHT) {
                         Intent intent = new Intent(RiwayatBuahActivity.this, InputBuahActivity.class);
                         intent.putExtra("isEditMode", true);
@@ -184,6 +276,34 @@ public class RiwayatBuahActivity extends AppCompatActivity {
         loadBuahData();
     }
 
+    private void loadTruckData() {
+        truckListener = firestore.collection("Truck")
+                .addSnapshotListener((querySnapshot, error) -> {
+                    if (error != null) {
+                        Log.e("RiwayatBuahActivity", "Truck listener error: " + error.getMessage());
+                        Toast.makeText(this, "Gagal memuat truck: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (querySnapshot != null) {
+                        truckList.clear();
+                        truckMap.clear();
+                        truckList.add("Semua Truck");
+                        for (com.google.firebase.firestore.QueryDocumentSnapshot doc : querySnapshot) {
+                            String kodeTruck = doc.getString("kodeTruck");
+                            String namaPengemudi = doc.getString("namaPengemudi");
+                            if (kodeTruck != null && namaPengemudi != null) {
+                                String displayText = kodeTruck + " - " + namaPengemudi;
+                                truckList.add(displayText);
+                                truckMap.put(displayText, kodeTruck);
+                            }
+                        }
+                        Collections.sort(truckList.subList(1, truckList.size())); // Sort without "Semua Truck"
+                        ((ArrayAdapter<?>) spinnerKodeTruck.getAdapter()).notifyDataSetChanged();
+                        Log.d("RiwayatBuahActivity", "Loaded " + (truckList.size() - 1) + " trucks");
+                    }
+                });
+    }
+
     private void loadBuahData() {
         buahListener = firestore.collection("Buah")
                 .addSnapshotListener((querySnapshot, error) -> {
@@ -209,11 +329,61 @@ public class RiwayatBuahActivity extends AppCompatActivity {
                             buah.put("waktuInput", doc.getString("waktuInput"));
                             buahList.add(buah);
                         }
-                        adapter.notifyDataSetChanged();
-                        txtEmptyState.setVisibility(buahList.isEmpty() ? View.VISIBLE : View.GONE);
+                        filterAndSortData();
                         Log.d("RiwayatBuahActivity", "Loaded " + buahList.size() + " buah items");
                     }
                 });
+    }
+
+    private void filterAndSortData() {
+        filteredBuahList.clear();
+        for (HashMap<String, Object> buah : buahList) {
+            String kodeTruck = (String) buah.get("kodeTruck");
+            String tanggalInput = (String) buah.get("tanggalInput");
+            boolean matchesTruck = selectedKodeTruck == null || (kodeTruck != null && kodeTruck.equals(selectedKodeTruck));
+            boolean matchesDate = selectedDate == null || (tanggalInput != null && tanggalInput.equals(selectedDate));
+            if (matchesTruck && matchesDate) {
+                filteredBuahList.add(buah);
+            }
+        }
+
+        // Sort filtered list
+        switch (sortOption) {
+            case "Kode Truck":
+                Collections.sort(filteredBuahList, (a, b) -> {
+                    String kodeA = (String) a.get("kodeTruck");
+                    String kodeB = (String) b.get("kodeTruck");
+                    return (kodeA != null && kodeB != null) ? kodeA.compareTo(kodeB) : 0;
+                });
+                break;
+            case "Newest":
+                Collections.sort(filteredBuahList, (a, b) -> {
+                    String dateA = (String) a.get("tanggalInput") + " " + (String) a.get("waktuInput");
+                    String dateB = (String) b.get("tanggalInput") + " " + (String) b.get("waktuInput");
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+                    try {
+                        return sdf.parse(dateB).compareTo(sdf.parse(dateA)); // Descending
+                    } catch (ParseException e) {
+                        return 0;
+                    }
+                });
+                break;
+            case "Oldest":
+                Collections.sort(filteredBuahList, (a, b) -> {
+                    String dateA = (String) a.get("tanggalInput") + " " + (String) a.get("waktuInput");
+                    String dateB = (String) b.get("tanggalInput") + " " + (String) b.get("waktuInput");
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+                    try {
+                        return sdf.parse(dateA).compareTo(sdf.parse(dateB)); // Ascending
+                    } catch (ParseException e) {
+                        return 0;
+                    }
+                });
+                break;
+        }
+
+        adapter.notifyDataSetChanged();
+        txtEmptyState.setVisibility(filteredBuahList.isEmpty() ? View.VISIBLE : View.GONE);
     }
 
     private void deleteBuah(HashMap<String, Object> buah) {
@@ -239,6 +409,9 @@ public class RiwayatBuahActivity extends AppCompatActivity {
         super.onDestroy();
         if (buahListener != null) {
             buahListener.remove();
+        }
+        if (truckListener != null) {
+            truckListener.remove();
         }
     }
 

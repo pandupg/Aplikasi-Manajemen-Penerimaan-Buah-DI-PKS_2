@@ -7,6 +7,7 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -27,6 +28,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.WriteBatch;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -103,16 +105,12 @@ public class RiwayatTruckActivity extends AppCompatActivity {
                     Truck truck = adapter.getItem(position);
                     if (truck != null && truck.getKodeTruck() != null) {
                         if (direction == ItemTouchHelper.LEFT) {
-                            firestore.collection("Truck").document(truck.getKodeTruck())
-                                    .delete()
-                                    .addOnSuccessListener(unused -> {
-                                        txtEmptyState.setVisibility(truckList.isEmpty() ? View.VISIBLE : View.GONE);
-                                        Toast.makeText(RiwayatTruckActivity.this, "Data truck dihapus", Toast.LENGTH_SHORT).show();
-                                    })
-                                    .addOnFailureListener(e -> {
-                                        Toast.makeText(RiwayatTruckActivity.this, "Gagal hapus data: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                                        adapter.notifyItemChanged(position);
-                                    });
+                            new AlertDialog.Builder(RiwayatTruckActivity.this)
+                                    .setTitle("Konfirmasi")
+                                    .setMessage("Hapus truck " + truck.getKodeTruck() + "? Semua data buah terkait juga akan dihapus.")
+                                    .setPositiveButton("Hapus", (dialog, which) -> deleteTruckAndBuah(truck, position))
+                                    .setNegativeButton("Batal", (dialog, which) -> adapter.notifyItemChanged(position))
+                                    .show();
                         } else if (direction == ItemTouchHelper.RIGHT) {
                             Intent intent = new Intent(RiwayatTruckActivity.this, InputTruckActivity.class);
                             intent.putExtra("kodeTruck", truck.getKodeTruck());
@@ -150,6 +148,40 @@ public class RiwayatTruckActivity extends AppCompatActivity {
 
         setupBottomNav();
         muatData();
+    }
+
+    private void deleteTruckAndBuah(Truck truck, int position) {
+        String kodeTruck = truck.getKodeTruck();
+        // Query Buah documents with matching kodeTruck
+        firestore.collection("Buah")
+                .whereEqualTo("kodeTruck", kodeTruck)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    WriteBatch batch = firestore.batch();
+                    // Add Buah documents to batch delete
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        batch.delete(doc.getReference());
+                    }
+                    // Add Truck document to batch delete
+                    batch.delete(firestore.collection("Truck").document(kodeTruck));
+                    // Commit batch
+                    batch.commit()
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d("RiwayatTruckActivity", "Deleted truck: " + kodeTruck + " and " + querySnapshot.size() + " buah");
+                                Toast.makeText(RiwayatTruckActivity.this, "Data truck dan buah dihapus", Toast.LENGTH_SHORT).show();
+                                txtEmptyState.setVisibility(truckList.isEmpty() ? View.VISIBLE : View.GONE);
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e("RiwayatTruckActivity", "Batch delete error: " + e.getMessage());
+                                Toast.makeText(RiwayatTruckActivity.this, "Gagal hapus data: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                adapter.notifyItemChanged(position);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("RiwayatTruckActivity", "Query buah error: " + e.getMessage());
+                    Toast.makeText(RiwayatTruckActivity.this, "Gagal hapus data: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    adapter.notifyItemChanged(position);
+                });
     }
 
     private void muatData() {
