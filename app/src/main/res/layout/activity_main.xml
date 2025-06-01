@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -8,12 +9,20 @@
     android:orientation="vertical"
     tools:context=".MainActivity">
 
+    <!-- Loading Spinner -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone" />
+
     <TextView
         android:id="@+id/headerTitle"
         android:layout_width="match_parent"
         android:layout_height="56dp"
         android:background="#4CAF50"
-        android:gravity="center_vertical|center"
+        android:gravity="center"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
         android:text="Manajemen Data Buah"
@@ -21,7 +30,6 @@
         android:textSize="20sp"
         android:textStyle="bold" />
 
-    <!-- ScrollView untuk isi konten -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -33,33 +41,39 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Horizontal Scroll Card Info -->
+            <!-- Quick Stats -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Statistik Cepat"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
             <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
                 android:scrollbars="none">
 
                 <LinearLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="125dp"
+                    android:layout_height="wrap_content"
                     android:orientation="horizontal">
 
-                    <!-- Info Card 1 -->
+                    <!-- Total Buah -->
                     <LinearLayout
                         android:layout_width="200dp"
-                        android:layout_height="120dp"
+                        android:layout_height="wrap_content"
                         android:layout_marginEnd="12dp"
-                        android:layout_marginTop="2dp"
-                        android:background="@drawable/info_card_bg"
+                        android:background="@drawable/card_background"
                         android:elevation="4dp"
                         android:orientation="vertical"
-                        android:layout_marginLeft="5dp"
                         android:padding="12dp">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Total Buah"
+                            android:text="🍇 Total Buah"
                             android:textColor="#4CAF50"
                             android:textSize="14sp"
                             android:textStyle="bold" />
@@ -71,15 +85,31 @@
                             android:text="0"
                             android:textColor="@android:color/black"
                             android:textSize="24sp" />
+
+                        <TextView
+                            android:id="@+id/txtLolosBasik"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Lolos Basik: 0%"
+                            android:textColor="#4CAF50"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/txtAverageBuah"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Harian: 0, Bulanan: 0"
+                            android:textColor="#757575"
+                            android:textSize="12sp" />
                     </LinearLayout>
 
-                    <!-- Info Card 2 -->
+                    <!-- Total Buah Matang -->
                     <LinearLayout
                         android:layout_width="200dp"
-                        android:layout_height="120dp"
+                        android:layout_height="wrap_content"
                         android:layout_marginEnd="12dp"
-                        android:layout_marginTop="2dp"
-                        android:background="@drawable/info_card_bg"
+                        android:background="@drawable/card_background"
                         android:elevation="4dp"
                         android:orientation="vertical"
                         android:padding="12dp">
@@ -87,7 +117,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Total Buah Matang"
+                            android:text="🍌 Total Buah Matang"
                             android:textColor="#4CAF50"
                             android:textSize="14sp"
                             android:textStyle="bold" />
@@ -101,13 +131,12 @@
                             android:textSize="24sp" />
                     </LinearLayout>
 
-                    <!-- Info Card 3 -->
+                    <!-- Total Buah Mentah -->
                     <LinearLayout
                         android:layout_width="200dp"
-                        android:layout_height="120dp"
+                        android:layout_height="wrap_content"
                         android:layout_marginEnd="12dp"
-                        android:layout_marginTop="2dp"
-                        android:background="@drawable/info_card_bg"
+                        android:background="@drawable/card_background"
                         android:elevation="4dp"
                         android:orientation="vertical"
                         android:padding="12dp">
@@ -115,7 +144,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Total Buah Mentah"
+                            android:text="🍋 Total Buah Mentah"
                             android:textColor="#4CAF50"
                             android:textSize="14sp"
                             android:textStyle="bold" />
@@ -129,13 +158,12 @@
                             android:textSize="24sp" />
                     </LinearLayout>
 
-                    <!-- Info Card 1 -->
+                    <!-- Total Buah Busuk -->
                     <LinearLayout
                         android:layout_width="200dp"
-                        android:layout_height="120dp"
+                        android:layout_height="wrap_content"
                         android:layout_marginEnd="12dp"
-                        android:layout_marginTop="2dp"
-                        android:background="@drawable/info_card_bg"
+                        android:background="@drawable/card_background"
                         android:elevation="4dp"
                         android:orientation="vertical"
                         android:padding="12dp">
@@ -143,7 +171,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Total Buah Busuk"
+                            android:text="❌ Total Buah Busuk"
                             android:textColor="#4CAF50"
                             android:textSize="14sp"
                             android:textStyle="bold" />
@@ -157,13 +185,12 @@
                             android:textSize="24sp" />
                     </LinearLayout>
 
-                    <!-- Info Card 1 -->
+                    <!-- Total Buah Lewat Matang -->
                     <LinearLayout
                         android:layout_width="200dp"
-                        android:layout_height="120dp"
+                        android:layout_height="wrap_content"
                         android:layout_marginEnd="12dp"
-                        android:layout_marginTop="2dp"
-                        android:background="@drawable/info_card_bg"
+                        android:background="@drawable/card_background"
                         android:elevation="4dp"
                         android:orientation="vertical"
                         android:padding="12dp">
@@ -171,7 +198,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Total Buah Lewat Matang"
+                            android:text="🍊 Total Lewat Matang"
                             android:textColor="#4CAF50"
                             android:textSize="14sp"
                             android:textStyle="bold" />
@@ -184,10 +211,37 @@
                             android:textColor="@android:color/black"
                             android:textSize="24sp" />
                     </LinearLayout>
+
+                    <!-- Today's Indicator -->
+                    <LinearLayout
+                        android:layout_width="200dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/card_background"
+                        android:elevation="4dp"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="📅 Hari Ini"
+                            android:textColor="#4CAF50"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txtTodayStats"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0 kg, Lolos: ❓"
+                            android:textColor="@android:color/black"
+                            android:textSize="16sp" />
+                    </LinearLayout>
                 </LinearLayout>
             </HorizontalScrollView>
 
-            <!-- Placeholder Grafik -->
+            <!-- Graph Section -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -196,15 +250,179 @@
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <Spinner
+                    android:id="@+id/spinnerYear"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@drawable/spinner_background" />
+
+                <Button
+                    android:id="@+id/btnToggleMatang"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:backgroundTint="#4CAF50"
+                    android:text="Matang"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnToggleMentah"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:backgroundTint="#FFC107"
+                    android:text="Mentah"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnToggleBusuk"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:backgroundTint="#F44336"
+                    android:text="Busuk"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnToggleLewatMatang"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:backgroundTint="#FF9800"
+                    android:text="Lewat Matang"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
             <com.github.mikephil.charting.charts.BarChart
                 android:id="@+id/barChart"
                 android:layout_width="match_parent"
                 android:layout_height="250dp"
                 android:layout_marginTop="8dp" />
+
+            <!-- Recent Entries -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="Riwayat Terbaru"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerRecentEntries"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:nestedScrollingEnabled="false" />
+
+            <!-- Notifications -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="Notifikasi"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerNotifications"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:nestedScrollingEnabled="false" />
+
+            <!-- Weekly Summary -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="Ringkasan Mingguan"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/card_background"
+                android:elevation="4dp"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📈 Kinerja Minggu Ini"
+                    android:textColor="#4CAF50"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/txtWeeklyTotal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Total buah: 0 kg"
+                    android:textColor="@android:color/black"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/txtWeeklyLolos"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Rata-rata lolos: 0%"
+                    android:textColor="@android:color/black"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/txtWeeklyTopTruck"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Truk terbanyak: -"
+                    android:textColor="@android:color/black"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
+            <!-- Action Buttons -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnViewReport"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:backgroundTint="#4CAF50"
+                    android:text="Lihat Laporan"
+                    android:textColor="@android:color/white" />
+
+                <Button
+                    android:id="@+id/btnExport"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:backgroundTint="#FF5722"
+                    android:text="Ekspor Data"
+                    android:textColor="@android:color/white" />
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 
-    <!-- Bottom Navigation -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottom_nav"
         android:layout_width="match_parent"
